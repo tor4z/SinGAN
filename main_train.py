@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', help='task to be done', default='train')
     opt = parser.parse_args()
     opt = functions.post_config(opt)
+    
     Gs = []
     Zs = []
     reals = []
