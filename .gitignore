@@ -2,4 +2,7 @@
 Output/
 TrainedModels/
 __pycache__/
+__pycache__
 .idea
+.vscode/
+SinGAN/__pycache__/
