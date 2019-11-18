@@ -17,11 +17,13 @@ if __name__ == '__main__':
     parser.add_argument('--mode', help='task to be done', default='paint2image')
     opt = parser.parse_args()
     opt = functions.post_config(opt)
+
     Gs = []
     Zs = []
     reals = []
     NoiseAmp = []
     dir2save = functions.generate_dir2save(opt)
+    
     if dir2save is None:
         print('task does not exist')
     #elif (os.path.exists(dir2save)):
@@ -34,8 +36,8 @@ if __name__ == '__main__':
         real = functions.read_image(opt)
         real = functions.adjust_scales2image(real, opt)
         Gs, Zs, reals, NoiseAmp = functions.load_trained_pyramid(opt)
-        if (opt.paint_start_scale < 1) | (opt.paint_start_scale > (len(Gs)-1)):
-            print("injection scale should be between 1 and %d" % (len(Gs)-1))
+        if (opt.paint_start_scale < 1) | (opt.paint_start_scale > (len(Gs) - 1)):
+            print("injection scale should be between 1 and %d" % (len(Gs) - 1))
         else:
             ref = functions.read_image_dir('%s/%s' % (opt.ref_dir, opt.ref_name), opt)
             if ref.shape[3] != real.shape[3]:
@@ -73,8 +75,3 @@ if __name__ == '__main__':
                     opt.mode = 'paint2image'
             out = SinGAN_generate(Gs[n:], Zs[n:], reals, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
             plt.imsave('%s/start_scale=%d.png' % (dir2save, opt.paint_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
-
-
-
-
-

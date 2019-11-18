@@ -18,13 +18,13 @@ def move_to_gpu(t):
         t = t.to(torch.device('cuda'))
     return t
 
-def np2torch(x,opt):
+def np2torch(x, opt):
     if opt.nc_im == 3:
-        x = x[:,:,:,None]
+        x = x[:, :, :, None]
         x = x.transpose((3, 2, 0, 1))/255
     else:
         x = color.rgb2gray(x)
-        x = x[:,:,None,None]
+        x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
     x = move_to_gpu(x)
@@ -33,27 +33,27 @@ def np2torch(x,opt):
     return x
 
 def torch2uint8(x):
-    x = x[0,:,:,:]
-    x = x.permute((1,2,0))
-    x = 255*denorm(x)
+    x = x[0, :, :, :]
+    x = x.permute((1, 2, 0))
+    x = 255 * denorm(x)
     x = x.cpu().numpy()
     x = x.astype(np.uint8)
     return x
 
 
-def imresize(im,scale,opt):
+def imresize(im, scale, opt):
     #s = im.shape
     im = torch2uint8(im)
     im = imresize_in(im, scale_factor=scale)
-    im = np2torch(im,opt)
+    im = np2torch(im, opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
-def imresize_to_shape(im,output_shape,opt):
+def imresize_to_shape(im, output_shape, opt):
     #s = im.shape
     im = torch2uint8(im)
     im = imresize_in(im, output_shape=output_shape)
-    im = np2torch(im,opt)
+    im = np2torch(im, opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
@@ -258,12 +258,12 @@ def cubic(x):
     absx = np.abs(x)
     absx2 = absx ** 2
     absx3 = absx ** 3
-    return ((1.5*absx3 - 2.5*absx2 + 1) * (absx <= 1) +
-            (-0.5*absx3 + 2.5*absx2 - 4*absx + 2) * ((1 < absx) & (absx <= 2)))
+    return ((1.5 * absx3 - 2.5 * absx2 + 1) * (absx <= 1) +
+            (-0.5 * absx3 + 2.5 * absx2 - 4 * absx + 2) * ((1 < absx) & (absx <= 2)))
 
 
 def lanczos2(x):
-    return (((np.sin(pi*x) * np.sin(pi*x/2) + np.finfo(np.float32).eps) /
+    return (((np.sin(pi * x) * np.sin(pi * x / 2) + np.finfo(np.float32).eps) /
              ((pi**2 * x**2 / 2) + np.finfo(np.float32).eps))
             * (abs(x) < 2))
 
@@ -273,7 +273,7 @@ def box(x):
 
 
 def lanczos3(x):
-    return (((np.sin(pi*x) * np.sin(pi*x/3) + np.finfo(np.float32).eps) /
+    return (((np.sin(pi * x) * np.sin(pi * x / 3) + np.finfo(np.float32).eps) /
             ((pi**2 * x**2 / 3) + np.finfo(np.float32).eps))
             * (abs(x) < 3))
 
