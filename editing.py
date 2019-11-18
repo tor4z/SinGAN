@@ -22,6 +22,7 @@ if __name__ == '__main__':
     reals = []
     NoiseAmp = []
     dir2save = functions.generate_dir2save(opt)
+
     if dir2save is None:
         print('task does not exist')
     #elif (os.path.exists(dir2save)):
@@ -35,7 +36,7 @@ if __name__ == '__main__':
         real = functions.adjust_scales2image(real, opt)
         Gs, Zs, reals, NoiseAmp = functions.load_trained_pyramid(opt)
 
-        if (opt.editing_start_scale < 1) | (opt.editing_start_scale > (len(Gs)-1)):
+        if (opt.editing_start_scale < 1) | (opt.editing_start_scale > (len(Gs) - 1)):
             print("injection scale should be between 1 and %d" % (len(Gs)-1))
         else:
             ref = functions.read_image_dir('%s/%s' % (opt.ref_dir, opt.ref_name), opt)
