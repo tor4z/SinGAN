@@ -42,5 +42,7 @@ def get_arguments():
     parser.add_argument('--lambda_grad', type=float, help='gradient penelty weight', default=0.1)
     parser.add_argument('--alpha', type=float, help='reconstruction loss weight', default=10)
 
+    #summary writer
+    parser.add_argument('--log_dir', help='summary writer log dir', default='runs')
     
     return parser

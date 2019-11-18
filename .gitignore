@@ -8,3 +8,5 @@ __pycache__
 .vscode/
 SinGAN/__pycache__
 SinGAN/__pycache__/
+runs
+runs/
