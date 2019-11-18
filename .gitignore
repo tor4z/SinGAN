@@ -4,5 +4,6 @@ TrainedModels/
 __pycache__/
 __pycache__
 .idea
+.pyc
 .vscode/
 SinGAN/__pycache__/
