@@ -13,6 +13,7 @@ from SinGAN.imresize import imresize
 import os
 import random
 from sklearn.cluster import KMeans
+from .utils import move_to_gpu, move_to_cpu, norm, denorm
 
 
 # custom weights initialization called on netG and netD
@@ -20,14 +21,6 @@ from sklearn.cluster import KMeans
 def read_image(opt):
     x = img.imread('%s%s' % (opt.input_img, opt.ref_image))
     return np2torch(x)
-
-def denorm(x):
-    out = (x + 1) / 2
-    return out.clamp(0, 1)
-
-def norm(x):
-    out = (x -0.5) *2
-    return out.clamp(-1, 1)
 
 #def denorm2image(I1,I2):
 #    out = (I1-I1.mean())/(I1.max()-I1.min())
@@ -77,7 +70,7 @@ def convert_image_np_2d(inp):
 def generate_noise(size, num_samp=1, device='cuda', type='gaussian', scale=1):
     if type == 'gaussian':
         noise = torch.randn(num_samp, size[0], round(size[1]/scale), round(size[2]/scale), device=device)
-        noise = upsampling(noise,size[1], size[2])
+        noise = upsampling(noise, size[1], size[2])
     if type =='gaussian_mixture':
         noise1 = torch.randn(num_samp, size[0], size[1], size[2], device=device) + 5
         noise2 = torch.randn(num_samp, size[0], size[1], size[2], device=device)
@@ -125,35 +118,27 @@ def reset_grads(model, require_grad):
         p.requires_grad_(require_grad)
     return model
 
-def move_to_gpu(t):
-    if (torch.cuda.is_available()):
-        t = t.to(torch.device('cuda'))
-    return t
 
-def move_to_cpu(t):
-    t = t.to(torch.device('cpu'))
-    return t
-
-def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA):
+def calc_gradient_penalty(netD, real_data, fake_data, opt):
     #print real_data.size()
     alpha = torch.rand(1, 1)
     alpha = alpha.expand(real_data.size())
-    alpha = alpha.cuda() #gpu) #if use_cuda else alpha
+    alpha = alpha.to(opt.device)
 
     interpolates = alpha * real_data + ((1 - alpha) * fake_data)
 
 
-    interpolates = interpolates.cuda()
+    interpolates = interpolates.to(opt.device)
     interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
 
     disc_interpolates = netD(interpolates)
 
     gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
-                              grad_outputs=torch.ones(disc_interpolates.size()).cuda(), #if use_cuda else torch.ones(
+                              grad_outputs=torch.ones(disc_interpolates.size()).to(opt.device), #if use_cuda else torch.ones(
                                   #disc_interpolates.size()),
                               create_graph=True, retain_graph=True, only_inputs=True)[0]
     #LAMBDA = 1
-    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * opt.lambda_grad
     return gradient_penalty
 
 def read_image(opt):
@@ -177,7 +162,7 @@ def np2torch(x, opt):
         x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor)
     x = norm(x)
     return x
@@ -289,7 +274,11 @@ def generate_dir2save(opt):
 
 def post_config(opt):
     # init fixed parameters
-    opt.device = torch.device("cuda:0" if opt.cuda else "cpu")
+    if opt.devices:
+        opt.device = torch.device('cuda:{}'.format(opt.devices[0]))
+    else:
+        opt.device = torch.device('cup')
+
     opt.niter_init = opt.niter
     opt.noise_amp_init = opt.noise_amp
     opt.nfc_init = opt.nfc
@@ -304,8 +293,8 @@ def post_config(opt):
     print("Random Seed: ", opt.manualSeed)
     random.seed(opt.manualSeed)
     torch.manual_seed(opt.manualSeed)
-    if torch.cuda.is_available() and not opt.cuda:
-        print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+    if torch.cuda.is_available() and not opt.devices:
+        print("WARNING: You have a CUDA device, so you should probably run with --devices")
     return opt
 
 def calc_init_scale(opt):
@@ -314,26 +303,26 @@ def calc_init_scale(opt):
     in_scale = pow(opt.sr_factor, 1 / iter_num)
     return in_scale, iter_num
 
-def quant(prev):
+def quant(prev, opt):
     arr = prev.reshape((-1, 3)).cpu()
     kmeans = KMeans(n_clusters=5, random_state=0).fit(arr)
     labels = kmeans.labels_
     centers = kmeans.cluster_centers_
     x = centers[labels]
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor)
     x = x.view(prev.shape)
     return x, centers
 
-def quant2centers(paint, centers):
+def quant2centers(paint, centers, opt):
     arr = paint.reshape((-1, 3)).cpu()
     kmeans = KMeans(n_clusters=5, init=centers, n_init=1).fit(arr)
     labels = kmeans.labels_
     #centers = kmeans.cluster_centers_
     x = centers[labels]
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor)
     x = x.view(paint.shape)
     return x

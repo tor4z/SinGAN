@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 
 
-def train(opt, Gs, Zs, reals, NoiseAmp):
+def train(opt, Gs, Zs, reals, NoiseAmp, summary):
     real_ = functions.read_image(opt)
     in_s = 0
     scale_num = 0
@@ -45,7 +45,7 @@ def train(opt, Gs, Zs, reals, NoiseAmp):
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_, scale_num - 1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
 
-        z_curr, in_s, G_curr = train_single_scale(D_curr, G_curr, reals, Gs, Zs, in_s, NoiseAmp, opt)
+        z_curr, in_s, G_curr = train_single_scale(D_curr, G_curr, reals, Gs, Zs, in_s, NoiseAmp, opt, summary)
 
         G_curr = functions.reset_grads(G_curr, False)
         G_curr.eval()
@@ -68,7 +68,7 @@ def train(opt, Gs, Zs, reals, NoiseAmp):
 
 
 
-def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=None):
+def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, summary, centers=None):
     real = reals[len(Gs)]
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
@@ -84,7 +84,7 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
 
     alpha = opt.alpha
 
-    fixed_noise = functions.generate_noise([opt.nc_z, opt.nzx, opt.nzy])
+    fixed_noise = functions.generate_noise([opt.nc_z, opt.nzx, opt.nzy], device=opt.device)
     z_opt = torch.full(fixed_noise.shape, 0, device=opt.device)
     z_opt = m_noise(z_opt)
 
@@ -102,12 +102,12 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
 
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
-            z_opt = functions.generate_noise([1,opt.nzx, opt.nzy])
-            z_opt = m_noise(z_opt.expand(1,3,opt.nzx, opt.nzy))
-            noise_ = functions.generate_noise([1,opt.nzx, opt.nzy])
-            noise_ = m_noise(noise_.expand(1,3,opt.nzx, opt.nzy))
+            z_opt = functions.generate_noise([1, opt.nzx, opt.nzy], device=opt.device)
+            z_opt = m_noise(z_opt.expand(1, 3, opt.nzx, opt.nzy))
+            noise_ = functions.generate_noise([1, opt.nzx, opt.nzy], device=opt.device)
+            noise_ = m_noise(noise_.expand(1, 3, opt.nzx, opt.nzy))
         else:
-            noise_ = functions.generate_noise([opt.nc_z, opt.nzx, opt.nzy])
+            noise_ = functions.generate_noise([opt.nc_z, opt.nzx, opt.nzy], device=opt.device)
             noise_ = m_noise(noise_)
 
         ############################
@@ -152,7 +152,7 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
                 prev = m_image(prev)
 
             if opt.mode == 'paint_train':
-                prev = functions.quant2centers(prev, centers)
+                prev = functions.quant2centers(prev, centers, opt)
                 plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
 
             if (Gs == []) & (opt.mode != 'SR_train'):
@@ -166,7 +166,7 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
             errD_fake.backward(retain_graph=True)
             D_G_z = output.mean().item()
 
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad)
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -187,7 +187,7 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
             if alpha!=0:
                 loss = nn.MSELoss()
                 if opt.mode == 'paint_train':
-                    z_prev = functions.quant2centers(z_prev, centers)
+                    z_prev = functions.quant2centers(z_prev, centers, opt)
                     plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
                 Z_opt = opt.noise_amp * z_opt + z_prev
                 rec_loss = alpha * loss(netG(Z_opt.detach(), z_prev), real)
@@ -212,14 +212,15 @@ def train_single_scale(netD, netG, reals, Gs, Zs, in_s, NoiseAmp, opt, centers=N
             print('scale %d:[%d/%d]' % (len(Gs), epoch, opt.niter))
 
         if epoch % 500 == 0 or epoch == (opt.niter - 1):
-            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
-            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
-            #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
-            #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
-            #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
-            #plt.imsave('%s/prev.png'     %  (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
-            #plt.imsave('%s/noise.png'    %  (opt.outf), functions.convert_image_np(noise), vmin=0, vmax=1)
-            #plt.imsave('%s/z_prev.png'   % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
+            summary.add_image('{}/fake_sample'.format(opt.outf), fake, epoch)
+            # plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
+            # plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
+            # plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
+            # plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
+            # plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
+            # plt.imsave('%s/prev.png'     %  (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
+            # plt.imsave('%s/noise.png'    %  (opt.outf), functions.convert_image_np(noise), vmin=0, vmax=1)
+            # plt.imsave('%s/z_prev.png'   % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
 
 
             torch.save(z_opt, '%s/z_opt.pth' % (opt.outf))
@@ -236,10 +237,10 @@ def draw_concat(Gs, Zs, reals, NoiseAmp, in_s, mode, m_noise, m_image, opt):
                 pad_noise = 0
             for G, Z_opt, real_curr, real_next, noise_amp in zip(Gs, Zs, reals, reals[1:], NoiseAmp):
                 if count == 0:
-                    z = functions.generate_noise([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise])
+                    z = functions.generate_noise([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
                     z = z.expand(1, 3, z.shape[2], z.shape[3])
                 else:
-                    z = functions.generate_noise([opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise])
+                    z = functions.generate_noise([opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
                 z = m_noise(z)
                 G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
                 G_z = m_image(G_z)
@@ -318,6 +319,8 @@ def init_models(opt):
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
     print(netG)
+    if opt.devices:
+        netG = nn.DataParallel(netG, device_ids=opt.devices)
 
     #discriminator initialization:
     netD = models.WDiscriminator(opt).to(opt.device)
@@ -325,5 +328,7 @@ def init_models(opt):
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
     print(netD)
+    if opt.devices:
+        netD = nn.DataParallel(netD, device_ids=opt.devices)
 
     return netD, netG

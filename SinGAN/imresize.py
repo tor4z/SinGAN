@@ -4,19 +4,8 @@ from math import pi
 #from SinGAN.functions import torch2uint8, np2torch
 import torch
 
+from .utils import move_to_gpu, norm, denorm
 
-def denorm(x):
-    out = (x + 1) / 2
-    return out.clamp(0, 1)
-
-def norm(x):
-    out = (x - 0.5) * 2
-    return out.clamp(-1, 1)
-
-def move_to_gpu(t):
-    if (torch.cuda.is_available()):
-        t = t.to(torch.device('cuda'))
-    return t
 
 def np2torch(x, opt):
     if opt.nc_im == 3:
@@ -27,7 +16,7 @@ def np2torch(x, opt):
         x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor)
     x = norm(x)
     return x
