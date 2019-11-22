@@ -81,12 +81,18 @@ def generate_noise(size, num_samp=1, device='cuda', type='gaussian', scale=1):
         noise1 = torch.randn(num_samp, size[0], size[1], size[2], device=device)
         noise2 = np.random.poisson(10, [num_samp, int(size[0]), int(size[1]), int(size[2])])
         noise2 =  torch.from_numpy(noise2).to(device)
-        noise2 = noise2.type(torch.cuda.FloatTensor)
+        if opt.cuda:
+            noise2 = noise2.type(torch.cuda.FloatTensor)
+        else:
+            noise2 = noise2.type(torch.FloatTensor)
         noise = noise1 + noise2
     if type == 'poisson':
         noise = np.random.poisson(0.1, [num_samp, int(size[0]), int(size[1]), int(size[2])])
         noise =  torch.from_numpy(noise).to(device)
-        noise = noise.type(torch.cuda.FloatTensor)
+        if opt.cuda:
+            noise = noise.type(torch.cuda.FloatTensor)
+        else:
+            noise = noise.type(torch.FloatTensor)
     return noise
 
 def plot_learning_curves(G_loss, D_loss, epochs, label1, label2, name):
@@ -163,7 +169,10 @@ def np2torch(x, opt):
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
     x = move_to_gpu(x, opt)
-    x = x.type(torch.cuda.FloatTensor)
+    if opt.cuda:
+        x = x.type(torch.cuda.FloatTensor)
+    else:
+        x = x.type(torch.FloatTensor)
     x = norm(x)
     return x
 
@@ -179,11 +188,6 @@ def read_image2np(opt):
     x = img.imread('%s/%s' % (opt.input_dir, opt.input_name))
     x = x[:, :, 0:3]
     return x
-
-def save_networks(netG, netD, z, opt):
-    torch.save(netG.state_dict(), '%s/netG.pth' % (opt.outf))
-    torch.save(netD.state_dict(), '%s/netD.pth' % (opt.outf))
-    torch.save(z, '%s/z_opt.pth' % (opt.outf))
 
 def adjust_scales2image(real_, opt):
     opt.num_scales = int((math.log(math.pow(opt.min_size / (real_.shape[2]), 1), opt.scale_factor_init))) + 1
@@ -219,24 +223,6 @@ def creat_reals_pyramid(real, reals, opt):
         reals.append(curr_real)
     return reals
 
-
-def load_trained_pyramid(opt, mode_='train'):
-    #dir = 'TrainedModels/%s/scale_factor=%f' % (opt.input_name[:-4], opt.scale_factor_init)
-    mode = opt.mode
-    opt.mode = 'train'
-    if (mode == 'animation_train') | (mode == 'SR_train') | (mode == 'paint_train'):
-        opt.mode = mode
-    dir = generate_dir2save(opt)
-    if(os.path.exists(dir)):
-        Gs = torch.load('%s/Gs.pth' % dir)
-        Zs = torch.load('%s/Zs.pth' % dir)
-        reals = torch.load('%s/reals.pth' % dir)
-        NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir)
-    else:
-        print('no appropriate trained model is exist, please train first')
-    opt.mode = mode
-    return Gs, Zs, reals, NoiseAmp
-
 def generate_in2coarsest(reals, scale_v, scale_h, opt):
     real = reals[opt.gen_start_scale]
     real_down = upsampling(real, scale_v * real.shape[2], scale_h * real.shape[3])
@@ -246,38 +232,15 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
         in_s = upsampling(real_down, real_down.shape[2], real_down.shape[3])
     return in_s
 
-def generate_dir2save(opt):
-    dir2save = None
-    if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        dir2save = 'TrainedModels/%s/scale_factor=%f,alpha=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.alpha)
-    elif (opt.mode == 'animation_train') :
-        dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
-    elif (opt.mode == 'paint_train') :
-        dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init, opt.paint_start_scale)
-    elif opt.mode == 'random_samples':
-        dir2save = '%s/RandomSamples/%s/gen_start_scale=%d' % (opt.out, opt.input_name[:-4], opt.gen_start_scale)
-    elif opt.mode == 'random_samples_arbitrary_sizes':
-        dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out, opt.input_name[:-4], opt.scale_v, opt.scale_h)
-    elif opt.mode == 'animation':
-        dir2save = '%s/Animation/%s' % (opt.out, opt.input_name[:-4])
-    elif opt.mode == 'SR':
-        dir2save = '%s/SR/%s' % (opt.out, opt.sr_factor)
-    elif opt.mode == 'harmonization':
-        dir2save = '%s/Harmonization/%s/%s_out' % (opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-    elif opt.mode == 'editing':
-        dir2save = '%s/Editing/%s/%s_out' % (opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-    elif opt.mode == 'paint2image':
-        dir2save = '%s/Paint2image/%s/%s_out' % (opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-        if opt.quantization_flag:
-            dir2save = '%s_quantized' % dir2save
-    return dir2save
 
 def post_config(opt):
     # init fixed parameters
     if opt.devices:
         opt.device = torch.device('cuda:{}'.format(opt.devices[0]))
+        opt.cuda = True
     else:
-        opt.device = torch.device('cup')
+        opt.device = torch.device('cpu')
+        opt.cuda = False
 
     opt.niter_init = opt.niter
     opt.noise_amp_init = opt.noise_amp
@@ -311,7 +274,10 @@ def quant(prev, opt):
     x = centers[labels]
     x = torch.from_numpy(x)
     x = move_to_gpu(x, opt)
-    x = x.type(torch.cuda.FloatTensor)
+    if opt.cuda:
+        x = x.type(torch.cuda.FloatTensor)
+    else:
+        x = x.type(torch.FloatTensor)
     x = x.view(prev.shape)
     return x, centers
 
@@ -323,7 +289,10 @@ def quant2centers(paint, centers, opt):
     x = centers[labels]
     x = torch.from_numpy(x)
     x = move_to_gpu(x, opt)
-    x = x.type(torch.cuda.FloatTensor)
+    if opt.cuda:
+        x = x.type(torch.cuda.FloatTensor)
+    else:
+        x = x.type(torch.FloatTensor)
     x = x.view(paint.shape)
     return x
 

@@ -39,8 +39,8 @@ class Summary:
         img_tensor = self.tensor_to_multi_image(img_tensor)
         self.writer.add_images(tag, img_tensor, global_steps, *agrs, **kwargs)
 
-    def add_graph(self, model, *args, **kwargs):
-        self.writer.add_graph(model, *args, **kwargs)
+    def add_graph(self, model):
+        self.writer.add_graph(model)
 
     def add_scalar(self, tag, scalar_value, global_steps, *args, **kwargs):
         self.writer.add_scalar(tag, scalar_value, global_steps, *agrs, **kwargs)

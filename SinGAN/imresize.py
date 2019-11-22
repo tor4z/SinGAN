@@ -17,7 +17,10 @@ def np2torch(x, opt):
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
     x = move_to_gpu(x, opt)
-    x = x.type(torch.cuda.FloatTensor)
+    if opt.cuda:
+        x = x.type(torch.cuda.FloatTensor)
+    else:
+        x = x.type(torch.FloatTensor)
     x = norm(x)
     return x
 

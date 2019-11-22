@@ -10,7 +10,7 @@ def norm(x):
     return out.clamp(-1, 1)
 
 def move_to_gpu(t, opt):
-    if (torch.cuda.is_available()):
+    if opt.cuda:
         t = t.to(opt.device)
     return t
 
