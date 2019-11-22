@@ -45,6 +45,7 @@ def get_arguments():
     # summary writer
     parser.add_argument('--log_dir', help='summary writer log dir', default='runs')
     parser.add_argument('--imgs_write', type=int, help='max images to write in the summary', default=3)
+    parser.add_argument('--v_freq', type=int, help='visualize per global step', default=300)
 
     # run time
     parser.add_argument('-f', '--force', action='store_true', help='remove already exist result and run')

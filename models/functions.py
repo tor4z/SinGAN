@@ -16,20 +16,9 @@ from sklearn.cluster import KMeans
 from .utils import move_to_gpu, move_to_cpu, norm, denorm
 
 
-# custom weights initialization called on netG and netD
-
 def read_image(opt):
     x = img.imread('%s%s' % (opt.input_img, opt.ref_image))
     return np2torch(x)
-
-#def denorm2image(I1,I2):
-#    out = (I1-I1.mean())/(I1.max()-I1.min())
-#    out = out*(I2.max()-I2.min())+I2.mean()
-#    return out#.clamp(I2.min(), I2.max())
-
-#def norm2image(I1,I2):
-#    out = (I1-I2.mean())*2
-#    return out#.clamp(I2.min(), I2.max())
 
 def convert_image_np(inp):
     if inp.shape[1] == 3:
@@ -40,24 +29,9 @@ def convert_image_np(inp):
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1, -1, :, :])
         inp = inp.numpy().transpose((0, 1))
-        # mean = np.array([x/255.0 for x in [125.3,123.0,113.9]])
-        # std = np.array([x/255.0 for x in [63.0,62.1,66.7]])
 
     inp = np.clip(inp, 0, 1)
     return inp
-
-def save_image(real_cpu, receptive_feild, ncs, epoch_num, file_name):
-    fig, ax = plt.subplots(1)
-    if ncs==1:
-        ax.imshow(real_cpu.view(real_cpu.size(2), real_cpu.size(3)), cmap='gray')
-    else:
-        #ax.imshow(convert_image_np(real_cpu[0,:,:,:].cpu()))
-        ax.imshow(convert_image_np(real_cpu.cpu()))
-    rect = patches.Rectangle((0, 0), receptive_feild, receptive_feild, linewidth=5, edgecolor='r', facecolor='none')
-    ax.add_patch(rect)
-    ax.axis('off')
-    plt.savefig(file_name)
-    plt.close(fig)
 
 def convert_image_np_2d(inp):
     inp = denorm(inp)
@@ -119,11 +93,6 @@ def upsampling(im, sx, sy):
     m = nn.Upsample(size=[round(sx), round(sy)], mode='bilinear', align_corners=True)
     return m(im)
 
-def reset_grads(model, require_grad):
-    for p in model.parameters():
-        p.requires_grad_(require_grad)
-    return model
-
 
 def calc_gradient_penalty(netD, real_data, fake_data, opt):
     #print real_data.size()
@@ -132,7 +101,6 @@ def calc_gradient_penalty(netD, real_data, fake_data, opt):
     alpha = alpha.to(opt.device)
 
     interpolates = alpha * real_data + ((1 - alpha) * fake_data)
-
 
     interpolates = interpolates.to(opt.device)
     interpolates = torch.autograd.Variable(interpolates, requires_grad=True)

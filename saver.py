@@ -64,7 +64,7 @@ class Saver(object):
                 dir2save = '%s_quantized' % dir2save
         return dir2save
 
-    def load_trained_pyramid(self):
+    def load_pyramid(self):
         path = self.join(self.path, self.PYRAMID_NAME)
         if(os.path.exists(path)):
             stat = self.load(path)
@@ -81,7 +81,7 @@ class Saver(object):
         path = self.join(self.path, self.PYRAMID_NAME)
         self.save(stat, path)
 
-    def save_networks(self, netG, netD, z, scale_num):
+    def save_networks(self, netG, netD, scale_num):
         path = self.join(self.path, str(scale_num))
 
         if not os.path.exists(path):
@@ -92,7 +92,6 @@ class Saver(object):
 
         self.save_network(netG, self.join(path, self.NETG_NAME))
         self.save_network(netD, self.join(path, self.NETD_NAME))
-        # self.save(z, self.join(path, 'z_opt.pth'))
 
     def load_networks(self, netG, netD, scale_num):
         path = self.join(self.path, str(scale_num))
