@@ -7,9 +7,7 @@ import scipy.io as sio
 import math
 from skimage import io as img
 from skimage import color, morphology, filters
-#from skimage import morphology
-#from skimage import filters
-from SinGAN.imresize import imresize
+from .imresize import imresize
 import os
 import random
 from sklearn.cluster import KMeans
@@ -177,34 +175,6 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
     else: #if n!=0
         in_s = upsampling(real_down, real_down.shape[2], real_down.shape[3])
     return in_s
-
-
-def post_config(opt):
-    # init fixed parameters
-    if opt.devices:
-        opt.device = torch.device('cuda:{}'.format(opt.devices[0]))
-        opt.cuda = True
-    else:
-        opt.device = torch.device('cpu')
-        opt.cuda = False
-
-    opt.niter_init = opt.niter
-    opt.noise_amp_init = opt.noise_amp
-    opt.nfc_init = opt.nfc
-    opt.min_nfc_init = opt.min_nfc
-    opt.scale_factor_init = opt.scale_factor
-    opt.out_ = 'TrainedModels/%s/scale_factor=%f/' % (opt.input_name[:-4], opt.scale_factor)
-    if opt.mode == 'SR':
-        opt.alpha = 100
-
-    if opt.manualSeed is None:
-        opt.manualSeed = random.randint(1, 10000)
-    print("Random Seed: ", opt.manualSeed)
-    random.seed(opt.manualSeed)
-    torch.manual_seed(opt.manualSeed)
-    if torch.cuda.is_available() and not opt.devices:
-        print("WARNING: You have a CUDA device, so you should probably run with --devices")
-    return opt
 
 def calc_init_scale(opt):
     in_scale = math.pow(1/2,1/3)

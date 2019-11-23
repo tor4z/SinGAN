@@ -22,7 +22,7 @@ def get_arguments():
     parser.add_argument('--ker_size', type=int, help='kernel size', default=3)
     parser.add_argument('--num_layer', type=int, help='number of layers', default=5)
     parser.add_argument('--stride', help='stride', default=1)
-    parser.add_argument('--padd_size', type=int, help='net pad size', default=0)#math.floor(opt.ker_size/2)
+    parser.add_argument('--padd_size', type=int, help='net pad size', default=0)
         
     # pyramid parameters:
     parser.add_argument('--scale_factor', type=float, help='pyramid scale factor', default=0.75)#pow(0.5,1/6))
@@ -51,3 +51,31 @@ def get_arguments():
     parser.add_argument('-f', '--force', action='store_true', help='remove already exist result and run')
     
     return parser
+
+
+def post_config(opt):
+    # init fixed parameters
+    if opt.devices:
+        opt.device = torch.device('cuda:{}'.format(opt.devices[0]))
+        opt.cuda = True
+    else:
+        opt.device = torch.device('cpu')
+        opt.cuda = False
+
+    opt.niter_init = opt.niter
+    opt.noise_amp_init = opt.noise_amp
+    opt.nfc_init = opt.nfc
+    opt.min_nfc_init = opt.min_nfc
+    opt.scale_factor_init = opt.scale_factor
+    opt.out_ = 'TrainedModels/%s/scale_factor=%f/' % (opt.input_name[:-4], opt.scale_factor)
+    if opt.mode == 'SR':
+        opt.alpha = 100
+
+    if opt.manualSeed is None:
+        opt.manualSeed = random.randint(1, 10000)
+    print("Random Seed: ", opt.manualSeed)
+    random.seed(opt.manualSeed)
+    torch.manual_seed(opt.manualSeed)
+    if torch.cuda.is_available() and not opt.devices:
+        print("WARNING: You have a CUDA device, so you should probably run with --devices")
+    return opt

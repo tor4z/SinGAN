@@ -71,13 +71,13 @@ class SinGAN(nn.Module):
     def visualize(self):
         self.summary.add_image('scale/{}/real'.format(self.scale_num), self.reals[self.scale_num], 0)
 
-    def generate(self, Gs, Zs, reals, NoiseAmp, opt, in_s=None, scale_v=1, scale_h=1, n=0, gen_start_scale=0, num_samples=50):
+    def generate(self, in_s=None, scale_v=1, scale_h=1, n=0, gen_start_scale=0, num_samples=50):
         #if torch.is_tensor(in_s) == False:
         if in_s is None:
             in_s = torch.full(reals[0].shape, 0, device=opt.device)
         images_cur = []
-        for G, Z_opt, noise_amp in zip(Gs, Zs, NoiseAmp):
-            pad1 = ((opt.ker_size - 1) * opt.num_layer) / 2
+        for G, Z_opt, noise_amp in zip(self.Gs, self.Zs, self.NoiseAmp):
+            pad1 = ((self.opt.ker_size - 1) * self.opt.num_layer) / 2
             m = nn.ZeroPad2d(int(pad1))
             nzx = (Z_opt.shape[2] - pad1 * 2) * scale_v
             nzy = (Z_opt.shape[3] - pad1 * 2) * scale_h

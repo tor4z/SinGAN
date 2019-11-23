@@ -1,8 +1,7 @@
-from config import get_arguments
+from .utils.config import get_arguments, post_config
 from summary import Summary
 from saver import Saver
-from SinGAN.manipulate import SinGAN_generate
-from SinGAN.training import train
+from .models.sin_gan import SinGAN
 import SinGAN.functions as functions
 
 
@@ -12,10 +11,10 @@ if __name__ == '__main__':
     parser.add_argument('--input_name', help='input image name', required=True)
     parser.add_argument('--mode', help='task to be done', default='train')
     opt = parser.parse_args()
-    opt = functions.post_config(opt)
+    opt = post_config(opt)
 
     summary =  Summary(opt)
     saver = Saver(opt)
 
-    train(opt, Gs, Zs, reals, NoiseAmp, summary, saver)
-    SinGAN_generate(Gs, Zs, reals, NoiseAmp, opt)
+    sin_gan = SinGAN(opt, summary, saver)
+    sin_gan.generate(Gs, Zs, reals, NoiseAmp, opt)

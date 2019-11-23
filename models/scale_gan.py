@@ -167,7 +167,7 @@ class ScaleGAN(nn.Module):
         return self.scale_num * self.opt.niter + self.epoch_curr
 
     def draw(self, mode):
-        G_z = in_s
+        G_z = self.in_s
         if len(Gs) > 0:
             if mode == 'rand':
                 count = 0
@@ -179,7 +179,7 @@ class ScaleGAN(nn.Module):
                         z = functions.generate_noise([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
                         z = z.expand(1, 3, z.shape[2], z.shape[3])
                     else:
-                        z = functions.generate_noise([opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
+                        z = functions.generate_noise([opt.nc_z, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
                     z = self.m_noise(z)
                     G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
                     G_z = self.m_image(G_z)
