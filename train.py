@@ -1,8 +1,7 @@
-from .utils.config import get_arguments, post_config
-from summary import Summary
-from saver import Saver
-from .models.sin_gan import SinGAN
-import SinGAN.functions as functions
+from utils.config import get_arguments, post_config
+from utils.summary import Summary
+from utils.saver import Saver
+from models.sin_gan import SinGAN
 
 
 if __name__ == '__main__':
@@ -15,6 +14,7 @@ if __name__ == '__main__':
 
     summary =  Summary(opt)
     saver = Saver(opt)
-
     sin_gan = SinGAN(opt, summary, saver)
-    sin_gan.generate(Gs, Zs, reals, NoiseAmp, opt)
+
+    sin_gan.train_pyramid()
+    sin_gan.generate()

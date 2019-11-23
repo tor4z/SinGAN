@@ -11,7 +11,7 @@ from .imresize import imresize
 import os
 import random
 from sklearn.cluster import KMeans
-from .utils import move_to_gpu, move_to_cpu, norm, denorm
+from . import move_to_gpu, move_to_cpu, norm, denorm
 
 
 def read_image(opt):
@@ -146,7 +146,6 @@ def adjust_scales2image(real_, opt):
     return real
 
 def adjust_scales2image_SR(real_, opt):
-    #'''
     opt.min_size = 18
     opt.num_scales = int((math.log(math.pow(opt.min_size / (min([real_.shape[2],real_.shape[3]])), 1), opt.scale_factor_init))) + 1
     scale2stop = int(math.log(min([opt.max_size, max([real_.shape[2], real_.shape[3]])]) / max([real_.shape[2], real_.shape[3]]), opt.scale_factor_init))

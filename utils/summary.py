@@ -4,8 +4,6 @@ import torch
 from torchvision.utils import make_grid
 from torch.utils.tensorboard import SummaryWriter
 
-from SinGAN.functions import denorm
-
 
 class Summary:
     def __init__(self, opt):
@@ -56,3 +54,7 @@ class Summary:
 
     def __del__(self):
         self.close()
+
+def denorm(x):
+    out = (x + 1) / 2
+    return out.clamp(0, 1)

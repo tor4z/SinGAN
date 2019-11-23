@@ -1,9 +1,6 @@
 import os
 import shutil
 import torch
-import matplotlib.pyplot as plt
-
-from SinGAN.functions import convert_image_np
 
 
 class Saver(object):
@@ -109,7 +106,3 @@ class Saver(object):
         state_dict = self.load(path)
         net.load_state_dict(state_dict)
         return net
-
-    def imsave(self, tensor, path):
-        img = functions.convert_image_np(tensor)
-        plt.imsave(path, img, vmin=0, vmax=1)

@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.ndimage import filters, measurements, interpolation
 from math import pi
-#from SinGAN.functions import torch2uint8, np2torch
 import torch
 
-from .utils import move_to_gpu, norm, denorm
+from . import move_to_gpu, norm, denorm
 
 
 def np2torch(x, opt):
