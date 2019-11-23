@@ -59,7 +59,7 @@ class ScaleGAN(nn.Module):
             output = self.netD(self.real)
             errD_real = -output.mean()
             errD_real.backward(retain_graph=True)
-            D_x = -errD_real.item()
+            self.lossD_real = -errD_real.detach()
 
             # train with fake
             if (j==0) & (self.epoch_curr == 0):
@@ -100,12 +100,14 @@ class ScaleGAN(nn.Module):
             output = self.netD(fake.detach())
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
-            D_G_z = output.mean().item()
+            self.lossD_fake = errD_fake.detach()
+            
 
             gradient_penalty = self.criterionGRAD(self.real, fake)
             gradient_penalty.backward()
+            self.lossGrad = gradient_penalty.detach()
 
-            errD = errD_real + errD_fake + gradient_penalty
+            self.lossD = (errD_real + errD_fake + gradient_penalty).detach()
             self.optimizerD.step()
         return fake
 
@@ -116,6 +118,8 @@ class ScaleGAN(nn.Module):
             #D_fake_map = output.detach()
             errG = -output.mean()
             errG.backward(retain_graph=True)
+            self.lossG = errG.detach()
+
             if self.alpha != 0:
                 if self.mode == 'paint_train':
                     self.z_prev = functions.quant2centers(self.z_prev, centers, opt)
@@ -123,10 +127,10 @@ class ScaleGAN(nn.Module):
                 Z_opt = self.noise_amp * z_opt + self.z_prev
                 rec_loss = self.alpha * self.criterionMSE(self.netG(Z_opt.detach(), self.z_prev), self.real)
                 rec_loss.backward(retain_graph=True)
-                rec_loss = rec_loss.detach()
+                self.lossRec = rec_loss.detach()
             else:
                 Z_opt = z_opt
-                rec_loss = 0
+                self.lossRec = 0
 
             self.optimizerG.step()
 
@@ -156,7 +160,7 @@ class ScaleGAN(nn.Module):
                 self.train_G(fake, z_opt)
 
                 self.scheduler_step()
-                self.visualize()
+                self.visualize(fake)
             self.save_networks()
 
     def save_networks(self):
@@ -232,8 +236,7 @@ class ScaleGAN(nn.Module):
         #LAMBDA = 1
         return ((gradients.norm(2, dim=1) - 1) ** 2).mean() * self.opt.lambda_grad
 
-    def visualize(self):
-        return
+    def visualize(self, fake):
         if self.global_steps() % self.opt.v_freq == 0:
             summary = self.sin_gan.summary
             scale_num = self.scale_num
@@ -246,8 +249,9 @@ class ScaleGAN(nn.Module):
             summary.add_image('noise/train_scale_{}'.format(scale_num), noise, self.global_steps)
             summary.add_image('z_prev/train_scale_{}'.format(scale_num), z_prev, self.global_steps)
 
-            summary.add_scalars('main', {'errD': errD.detach().item(),
-                                'errG': (errG.detach() + rec_loss).item(),
-                                'D_real': D_x,
-                                'D_fake': D_G_z,
+            summary.add_scalars('main', {'lossD': self.lossD.item(),
+                                'lossG': self.lossG.item(),
+                                'lossG': self.lossRec.item(),
+                                'lossD_real': self.lossD_fake,
+                                'lossD_fake': self.lossD_fake,
                                 'z_opt': rec_loss.detach().item(),}, self.global_steps)
