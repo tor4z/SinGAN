@@ -41,35 +41,7 @@ class ScaleGAN(nn.Module):
             self.opt.nzy = self.real.shape[3] + (self.opt.ker_size - 1) * (self.opt.num_layer)
             self.pad_noise = 0
 
-    def train_G(self):
-        ############################
-        # (2) Update G network: maximize D(G(z))
-        ###########################
-        for j in range(self.opt.Gsteps):
-            self.netG.zero_grad()
-            output = self.netD(fake)
-            #D_fake_map = output.detach()
-            errG = -output.mean()
-            errG.backward(retain_graph=True)
-            if alpha!=0:
-                loss = nn.MSELoss()
-                if opt.mode == 'paint_train':
-                    z_prev = functions.quant2centers(z_prev, centers, opt)
-                    plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
-                Z_opt = opt.noise_amp * z_opt + z_prev
-                rec_loss = alpha * loss(self.netG(Z_opt.detach(), z_prev), self.real)
-                rec_loss.backward(retain_graph=True)
-                rec_loss = rec_loss.detach()
-            else:
-                Z_opt = z_opt
-                rec_loss = 0
-
-            self.optimizerG.step()
-
     def train_D(self):
-        ############################
-        # (1) Update D network: maximize D(x) + D(G(z))
-        ###########################
         for j in range(self.opt.Dsteps):
             # train with real
             self.netD.zero_grad()
@@ -90,8 +62,7 @@ class ScaleGAN(nn.Module):
                     self.noise_amp = 1
                 elif opt.mode == 'SR_train':
                     z_prev = in_s
-                    criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev))
+                    RMSE = torch.sqrt(self.criterionMSE(real, z_prev))
                     self.noise_amp = opt.noise_amp_init * RMSE
                     z_prev = m_image(z_prev)
                     prev = z_prev
@@ -121,11 +92,32 @@ class ScaleGAN(nn.Module):
             errD_fake.backward(retain_graph=True)
             D_G_z = output.mean().item()
 
-            gradient_penalty = self.gradient_penalty(real, fake)
+            gradient_penalty = self.criterionGRAD(real, fake)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
             optimizerD.step()
+
+    def train_G(self):
+        for j in range(self.opt.Gsteps):
+            self.netG.zero_grad()
+            output = self.netD(fake)
+            #D_fake_map = output.detach()
+            errG = -output.mean()
+            errG.backward(retain_graph=True)
+            if alpha != 0:
+                if opt.mode == 'paint_train':
+                    z_prev = functions.quant2centers(z_prev, centers, opt)
+                    plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
+                Z_opt = opt.noise_amp * z_opt + z_prev
+                rec_loss = alpha * self.criterionMSE(self.netG(Z_opt.detach(), z_prev), self.real)
+                rec_loss.backward(retain_graph=True)
+                rec_loss = rec_loss.detach()
+            else:
+                Z_opt = z_opt
+                rec_loss = 0
+
+            self.optimizerG.step()
 
     def scheduler_step(self):
         self.schedulerD.step()
@@ -150,6 +142,8 @@ class ScaleGAN(nn.Module):
             self.train_D()
             self.train_G()
             self.scheduler_step()
+            self.visualize()
+        self.save_networks()
 
     def save_networks(self):
         self.sin_gan.saver.save_networks(self.netG, self.netD, self.scale_num)
@@ -206,7 +200,7 @@ class ScaleGAN(nn.Module):
                     count += 1
         return G_z
 
-    def gradient_penalty(real_data, fake_data):
+    def criterionGRAD(real_data, fake_data):
         alpha = torch.rand(1, 1)
         alpha = alpha.expand(real_data.size())
         alpha = alpha.to(self.opt.device)

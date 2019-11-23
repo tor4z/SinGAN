@@ -68,7 +68,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
 
 
 def init_models(opt, nfc):
-    #generator initialization:
+    #generator initialization:``
     netG = GeneratorConcatSkip2CleanAdd(opt, nfc)
     netG.apply(weights_init)
     if opt.netG != '':

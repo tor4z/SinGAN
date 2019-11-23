@@ -93,28 +93,6 @@ def upsampling(im, sx, sy):
     m = nn.Upsample(size=[round(sx), round(sy)], mode='bilinear', align_corners=True)
     return m(im)
 
-
-def calc_gradient_penalty(netD, real_data, fake_data, opt):
-    #print real_data.size()
-    alpha = torch.rand(1, 1)
-    alpha = alpha.expand(real_data.size())
-    alpha = alpha.to(opt.device)
-
-    interpolates = alpha * real_data + ((1 - alpha) * fake_data)
-
-    interpolates = interpolates.to(opt.device)
-    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
-
-    disc_interpolates = netD(interpolates)
-
-    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
-                              grad_outputs=torch.ones(disc_interpolates.size()).to(opt.device), #if use_cuda else torch.ones(
-                                  #disc_interpolates.size()),
-                              create_graph=True, retain_graph=True, only_inputs=True)[0]
-    #LAMBDA = 1
-    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * opt.lambda_grad
-    return gradient_penalty
-
 def read_image(opt):
     x = img.imread('%s/%s' % (opt.input_dir, opt.input_name))
     x = np2torch(x, opt)
