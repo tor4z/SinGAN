@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from .utils import functions
 from .utils import imresize
-from .scale_gan import ScaleGAN
+from .layer_gan import LayerGAN
 
 
 class SinGAN(nn.Module):
@@ -50,20 +50,19 @@ class SinGAN(nn.Module):
                 if (self.scale_num > 0) & (self.scale_num % 4==0):
                     self.opt.niter = self.opt.niter // 2
 
-            SG_curr = ScaleGAN(self.opt, self)
-            if (nfc_prev == self.opt.nfc):
-                SG_curr.load_network(self.scale_num-1)
+            LG_curr = LayerGAN(self.opt, self)
+            if (nfc_prev == self.nfc):
+                LG_curr.load_network(self.scale_num-1)
 
-            SG_curr.train_scale()
-            SG_curr.save_networks()
+            LG_curr.train_scale()
+            LG_curr.save_networks()
 
             self.scale_num += 1
             nfc_prev = self.nfc
 
-            SG_curr.eval()
             self.visualize()
             self.save_pyramid()
-            del SG_curr
+            del LG_curr
 
     def save_pyramid(self):
         self.saver.save_pyramid(self.Gs, self.Zs, self.reals, self.NoiseAmp)
@@ -72,7 +71,7 @@ class SinGAN(nn.Module):
         self.Gs, self.Zs, self.reals, self.NoiseAmp = self.saver.load_pyramid()
 
     def visualize(self):
-        self.summary.add_image('scale/{}/real'.format(self.scale_num), self.reals[self.scale_num], 0)
+        self.summary.add_image('scale/{}/real'.format(self.scale_num), self.reals[self.scale_num - 1], 0)
 
     def generate(self, in_s=None, scale_v=1, scale_h=1, n=0, gen_start_scale=0, num_samples=50):
         #if torch.is_tensor(in_s) == False:
@@ -90,20 +89,20 @@ class SinGAN(nn.Module):
 
             for i in range(0, num_samples, 1):
                 if n == 0:
-                    z_curr = functions.generate_noise([1, nzx, nzy], device=opt.device)
+                    z_curr = functions.generate_noise([1, nzx, nzy], device=self.opt.device)
                     z_curr = z_curr.expand(1, 3, z_curr.shape[2], z_curr.shape[3])
                     z_curr = m(z_curr)
                 else:
-                    z_curr = functions.generate_noise([opt.nc_z, nzx, nzy], device=opt.device)
+                    z_curr = functions.generate_noise([self.opt.nc_z, nzx, nzy], device=self.opt.device)
                     z_curr = m(z_curr)
 
                 if images_prev == []:
                     I_prev = m(in_s)
                 else:
                     I_prev = images_prev[i]
-                    I_prev = imresize(I_prev, 1 / opt.scale_factor, opt)
-                    if opt.mode != "SR":
-                        I_prev = I_prev[:, :, 0:round(scale_v * reals[n].shape[2]), 0:round(scale_h * reals[n].shape[3])]
+                    I_prev = imresize.imresize(I_prev, 1 / self.opt.scale_factor, self.opt)
+                    if self.opt.mode != "SR":
+                        I_prev = I_prev[:, :, 0:round(scale_v * self.reals[n].shape[2]), 0:round(scale_h * self.reals[n].shape[3])]
                         I_prev = m(I_prev)
                         I_prev = I_prev[:, :, 0:z_curr.shape[2], 0:z_curr.shape[3]]
                         I_prev = functions.upsampling(I_prev, z_curr.shape[2], z_curr.shape[3])
@@ -116,31 +115,32 @@ class SinGAN(nn.Module):
                 z_in = noise_amp * (z_curr) + I_prev
                 I_curr = G(z_in.detach(), I_prev)
 
-                if n == len(reals) - 1:
-                    if opt.mode == 'train':
-                        dir2save = '%s/RandomSamples/%s/gen_start_scale=%d' % (opt.out, opt.input_name[:-4], gen_start_scale)
+                if n == len(self.reals) - 1:
+                    if self.opt.mode == 'train':
+                        dir2save = '%s/RandomSamples/%s/gen_start_scale=%d' % (self.opt.out, self.opt.input_name[:-4], gen_start_scale)
                     else:
-                        dir2save = functions.generate_dir2save(opt)
+                        dir2save = functions.generate_dir2save(self.opt)
                     try:
                         os.makedirs(dir2save)
                     except OSError:
                         pass
-                    if (opt.mode != "harmonization") & (opt.mode != "editing") & (opt.mode != "SR") & (opt.mode != "paint2image"):
+                    if (self.opt.mode != "harmonization") & (self.opt.mode != "editing") & (self.opt.mode != "SR") & (self.opt.mode != "paint2image"):
                         self.summary.add_image('{}/{}'.format(dir2save, i), I_curr.detach(), 0)
                         #plt.imsave('%s/%d_%d.png' % (dir2save,i,n),functions.convert_image_np(I_curr.detach()), vmin=0, vmax=1)
                         #plt.imsave('%s/in_s.png' % (dir2save), functions.convert_image_np(in_s), vmin=0,vmax=1)
                 images_cur.append(I_curr)
             n += 1
+        print('generate end.')
         return I_curr.detach()
 
     def generate_gif(self, Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=10):
 
-        in_s = torch.full(Zs[0].shape, 0, device=opt.device)
+        in_s = torch.full(Zs[0].shape, 0, device=self.opt.device)
         images_cur = []
         count = 0
 
         for G, Z_opt, noise_amp, real in zip(Gs, Zs, NoiseAmp, reals):
-            pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
+            pad_image = int(((self.opt.ker_size - 1) * self.opt.num_layer) / 2)
             nzx = Z_opt.shape[2]
             nzy = Z_opt.shape[3]
             #pad_noise = 0
@@ -149,21 +149,21 @@ class SinGAN(nn.Module):
             images_prev = images_cur
             images_cur = []
             if count == 0:
-                z_rand = functions.generate_noise([1, nzx, nzy], device=opt.device)
+                z_rand = functions.generate_noise([1, nzx, nzy], device=self.opt.device)
                 z_rand = z_rand.expand(1, 3, Z_opt.shape[2], Z_opt.shape[3])
                 z_prev1 = 0.95 * Z_opt +0.05 * z_rand
                 z_prev2 = Z_opt
             else:
-                z_prev1 = 0.95 * Z_opt + 0.05 * functions.generate_noise([opt.nc_z, nzx, nzy], device=opt.device)
+                z_prev1 = 0.95 * Z_opt + 0.05 * functions.generate_noise([self.opt.nc_z, nzx, nzy], device=self.opt.device)
                 z_prev2 = Z_opt
 
             for i in range(0, 100, 1):
                 if count == 0:
-                    z_rand = functions.generate_noise([1, nzx, nzy], device=opt.device)
+                    z_rand = functions.generate_noise([1, nzx, nzy], device=self.opt.device)
                     z_rand = z_rand.expand(1, 3, Z_opt.shape[2], Z_opt.shape[3])
                     diff_curr = beta * (z_prev1 - z_prev2) + (1 - beta) * z_rand
                 else:
-                    diff_curr = beta * (z_prev1 - z_prev2) + (1 - beta) * (functions.generate_noise([opt.nc_z, nzx, nzy], device=opt.device))
+                    diff_curr = beta * (z_prev1 - z_prev2) + (1 - beta) * (functions.generate_noise([self.opt.nc_z, nzx, nzy], device=self.opt.device))
 
                 z_curr = alpha * Z_opt + (1 - alpha) * (z_prev1 + diff_curr)
                 z_prev2 = z_prev1
@@ -173,7 +173,7 @@ class SinGAN(nn.Module):
                     I_prev = in_s
                 else:
                     I_prev = images_prev[i]
-                    I_prev = imresize(I_prev, 1 / opt.scale_factor, opt)
+                    I_prev = imresize(I_prev, 1 / self.opt.scale_factor, self.opt)
                     I_prev = I_prev[:, :, 0:real.shape[2], 0:real.shape[3]]
                     #I_prev = functions.upsampling(I_prev,reals[count].shape[2],reals[count].shape[3])
                     I_prev = m_image(I_prev)
@@ -191,7 +191,7 @@ class SinGAN(nn.Module):
 
                 images_cur.append(I_curr)
             count += 1
-        dir2save = functions.generate_dir2save(opt)
+        dir2save = functions.generate_dir2save(self.opt)
         try:
             os.makedirs('%s/start_scale=%d' % (dir2save, start_scale) )
         except OSError:
@@ -200,31 +200,31 @@ class SinGAN(nn.Module):
         del images_cur
 
     def train_paint(self, opt, Gs, Zs, reals, NoiseAmp, centers, paint_inject_scale):
-        in_s = torch.full(reals[0].shape, 0, device=opt.device)
+        in_s = torch.full(reals[0].shape, 0, device=self.opt.device)
         scale_num = 0
         nfc_prev = 0
 
-        while scale_num < opt.stop_scale + 1:
+        while scale_num < self.opt.stop_scale + 1:
             if scale_num != paint_inject_scale:
                 scale_num += 1
-                nfc_prev = opt.nfc
+                nfc_prev = self.nfc
                 continue
             else:
-                opt.nfc = min(opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
-                opt.min_nfc = min(opt.min_nfc_init * pow(2, math.floor(scale_num / 4)), 128)
+                self.opt.nfc = min(self.opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
+                self.opt.min_nfc = min(self.opt.min_nfc_init * pow(2, math.floor(scale_num / 4)), 128)
 
-                opt.out_ = functions.generate_dir2save(opt)
-                opt.outf = '%s/%d' % (opt.out_, scale_num)
+                self.opt.out_ = functions.generate_dir2save(opt)
+                self.opt.outf = '%s/%d' % (self.opt.out_, scale_num)
                 try:
-                    os.makedirs(opt.outf)
+                    os.makedirs(self.opt.outf)
                 except OSError:
                         pass
 
                 #plt.imsave('%s/in.png' %  (opt.out_), functions.convert_image_np(real), vmin=0, vmax=1)
                 #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
-                self.summary.add_image('{}/in_scale'.format(self.opt.input_name), reals[scale_num])
+                self.summary.add_image('{}/in_scale'.format(self.opt.input_name), reals[scale_num], 0)
 
-                D_curr,G_curr = init_models(opt)
+                D_curr,G_curr = init_models(self.opt)
 
                 z_curr, in_s, G_curr = train_single_scale(D_curr, G_curr, reals[:scale_num+1], Gs[:scale_num], Zs[:scale_num], in_s, NoiseAmp[:scale_num], opt, centers=centers)
 
@@ -235,15 +235,15 @@ class SinGAN(nn.Module):
 
                 Gs[scale_num] = G_curr
                 Zs[scale_num] = z_curr
-                NoiseAmp[scale_num] = opt.noise_amp
+                NoiseAmp[scale_num] = self.opt.noise_amp
 
-                torch.save(Zs, '%s/Zs.pth' % (opt.out_))
-                torch.save(Gs, '%s/Gs.pth' % (opt.out_))
-                torch.save(reals, '%s/reals.pth' % (opt.out_))
-                torch.save(NoiseAmp, '%s/NoiseAmp.pth' % (opt.out_))
+                torch.save(Zs, '%s/Zs.pth' % (self.opt.out_))
+                torch.save(Gs, '%s/Gs.pth' % (self.opt.out_))
+                torch.save(reals, '%s/reals.pth' % (self.opt.out_))
+                torch.save(NoiseAmp, '%s/NoiseAmp.pth' % (self.opt.out_))
 
                 scale_num += 1
-                nfc_prev = opt.nfc
+                nfc_prev = self.nfc
             del D_curr, G_curr
 
 

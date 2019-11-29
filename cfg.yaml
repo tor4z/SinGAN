@@ -1,0 +1,54 @@
+# train
+input_dir: Input/Images
+input_name: stone.png
+mode: train
+
+# common
+workers: 3
+devices:
+  # - 0
+  - 1
+  # - 2
+  # - 3
+  # - 4
+  # - 5
+  # - 6
+  # - 7
+
+netG: null
+netD: null
+manualSeed: 10086
+nc_z: 3
+nc_im: 3
+out: storages
+
+nfc: 32
+min_nfc: 32
+ker_size: 3
+num_layer: 5
+stride: 1
+padd_size: 0
+
+scale_factor: 0.75
+noise_amp: 0.1
+min_size: 25
+max_size: 256
+
+niter: 20
+fast_training: false
+gamma: 0.1
+lr_g: 0.0005
+lr_d: 0.0005
+beta1: 0.5
+Gsteps: 3
+Dsteps: 5
+lambda_grad: 0.1
+alpha: 10
+
+log_dir: runs
+imgs_write: 3
+v_freq: 300
+
+force: true
+runtime_id: null
+resume: false

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class ConvBlock(nn.Sequential):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride):
-        super(ConvBlock,self).__init__()
+        super(ConvBlock, self).__init__()
         self.add_module('conv', nn.Conv2d(in_channel, out_channel, kernel_size=ker_size, stride=stride, padding=padd)),
         self.add_module('norm', nn.BatchNorm2d(out_channel)),
         self.add_module('LeakyRelu', nn.LeakyReLU(0.2, inplace=True))
@@ -29,7 +29,7 @@ class WDiscriminator(nn.Module):
         self.head = ConvBlock(opt.nc_im, N, opt.ker_size, opt.padd_size, 1)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
-            N = int(opt.nfc / pow(2, (i + 1)))
+            N = int(nfc / pow(2, (i + 1)))
             block = ConvBlock(max(2 * N, opt.min_nfc), max(N, opt.min_nfc), opt.ker_size, opt.padd_size, 1)
             self.body.add_module('block%d' % (i + 1), block)
         self.tail = nn.Conv2d(max(N, opt.min_nfc), 1, kernel_size=opt.ker_size, stride=1, padding=opt.padd_size)
@@ -49,7 +49,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         self.head = ConvBlock(opt.nc_im, N, opt.ker_size, opt.padd_size, 1) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
         for i in range(opt.num_layer - 2):
-            N = int(opt.nfc / pow(2, (i + 1)))
+            N = int(nfc / pow(2, (i + 1)))
             block = ConvBlock(max(2 * N, opt.min_nfc), max(N, opt.min_nfc), opt.ker_size, opt.padd_size, 1)
             self.body.add_module('block%d' % (i + 1), block)
         self.tail = nn.Sequential(
@@ -71,22 +71,22 @@ def init_models(opt, nfc):
     #generator initialization:``
     netG = GeneratorConcatSkip2CleanAdd(opt, nfc)
     netG.apply(weights_init)
-    if opt.netG != '':
+    if opt.netG is not None:
         netG.load_state_dict(torch.load(opt.netG))
     
     netG = netG.to(opt.device)
-    if opt.devices:
-        netG = nn.DataParallel(netG, device_ids=opt.devices)
+    # if opt.devices:
+    #     netG = nn.DataParallel(netG, device_ids=opt.devices)
 
     #discriminator initialization:
     netD = WDiscriminator(opt, nfc)
     netD.apply(weights_init)
-    if opt.netD != '':
+    if opt.netD is not None:
         netD.load_state_dict(torch.load(opt.netD))
     
     netD = netD.to(opt.device)
-    if opt.devices:
-        netD = nn.DataParallel(netD, device_ids=opt.devices)
+    # if opt.devices:
+    #     netD = nn.DataParallel(netD, device_ids=opt.devices)
 
     return netD, netG
 

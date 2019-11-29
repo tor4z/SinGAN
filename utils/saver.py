@@ -4,7 +4,11 @@ import torch
 
 
 class Saver(object):
-    PYRAMID_NAME = 'pyramid.pth'
+    PYRAMID_NAME = 'pyramid'
+    GS = 'Gs.pth'
+    ZS = 'Zs.pth'
+    REALS = 'reals.pth'
+    NOISEAMP = 'NoiseAmp.pth'
     NETG_NAME = 'netG.pth'
     NETD_NAME = 'netD.pth'
 
@@ -21,18 +25,22 @@ class Saver(object):
 
         try:
             os.makedirs(self.path)
+            os.makedirs(self.join(self.path, self.PYRAMID_NAME))
         except OSError:
             print('Can not make dir {}'.format(self.path))
             exit(1)
 
-    def join(self, path, name):
-        return os.path.join(path, name)
+    def join(self, *args):
+        return os.path.join(*args)
 
     def save(self, obj, path):
         torch.save(obj, path)
 
     def load(self, path):
-        return torch.load(path)
+        if(os.path.exists(path)):
+            return torch.load(path)
+        else:
+            raise RuntimeError('{} not exists'.format(path))
 
     def generate_dir2save(self):
         dir2save = None
@@ -62,21 +70,32 @@ class Saver(object):
         return dir2save
 
     def load_pyramid(self):
-        path = self.join(self.path, self.PYRAMID_NAME)
-        if(os.path.exists(path)):
-            stat = self.load(path)
-        else:
-            print('no appropriate trained model is exist, please train first')
-        return stat['Gs'], stat['Zs'], stat['reals'], stat['NoiseAmp']
+        path = self.join(self.path, self.PYRAMID_NAME, self.GS)
+        Gs = self.load(path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.ZS)
+        Zs = self.load(path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.REALS)
+        reals = self.load(path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.NOISEAMP)
+        NoiseAmp = self.load(path)
+
+        return Gs, Zs, reals, NoiseAmp
 
     def save_pyramid(self, Gs, Zs, reals, NoiseAmp):
-        stat = {
-            'Gs': Gs,
-            'Zs': Zs,
-            'reals': reals,
-            'NoiseAmp': NoiseAmp}
-        path = self.join(self.path, self.PYRAMID_NAME)
-        self.save(stat, path)
+        path = self.join(self.path, self.PYRAMID_NAME, self.GS)
+        self.save(Gs, path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.ZS)
+        self.save(Zs, path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.REALS)
+        self.save(reals, path)
+
+        path = self.join(self.path, self.PYRAMID_NAME, self.NOISEAMP)
+        self.save(NoiseAmp, path)
 
     def save_networks(self, netG, netD, scale_num):
         path = self.join(self.path, str(scale_num))

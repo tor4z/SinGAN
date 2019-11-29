@@ -40,6 +40,7 @@ def imresize(im, scale, opt):
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
+
 def imresize_to_shape(im, output_shape, opt):
     #s = im.shape
     im = torch2uint8(im)
